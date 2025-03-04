@@ -2,7 +2,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.neighbors import KNeighborsClassifier
 import pandas as pd
 import streamlit as st
-
+import altair as alt
 
 st.set_page_config(
     page_title="BigData Team: streamlit demo",
@@ -50,7 +50,9 @@ labels = train["Survived"]
 train.drop("Survived", axis=1, inplace=True)
 
 st.subheader("В поисках лучшей kNN модели", divider=True)
-
+if 'score_collection' and 'counter' not in st.session_state:
+    st.session_state['score_collection'] = []
+    st.session_state['counter'] = 1 
 col1, col_, col2 = st.columns([0.5, 0.1, 0.4])
 with col1:
     n_neihbors = st.slider("Количество соседей", value=5, min_value=1, max_value=25)
@@ -63,6 +65,8 @@ with col1:
 
 with col2:
     cross_val_score_mean = cross_val_scores.mean()
+    st.session_state['score_collection'].append(cross_val_score_mean)
+    st.session_state['counter'] += 1
     delta = None
     if "previous_score" in st.session_state:
         delta = cross_val_score_mean - st.session_state["previous_score"]
@@ -74,12 +78,31 @@ with col2:
 
     st.session_state["previous_score"] = cross_val_score_mean
 
+line_chart_data = pd.DataFrame({
+    'counter': range(1,st.session_state.counter),
+    'score_collection': st.session_state.score_collection
+    })
+
+max_score = line_chart_data['score_collection'].max()
+min_score = line_chart_data['score_collection'].min()
+
+line_chart = (
+    alt.Chart(line_chart_data).mark_line(point=True).encode(
+        x='counter',
+        y=alt.Y(
+            'score_collection',
+            scale=alt.Scale(domain=[min_score - 0.03, max_score + 0.03])  # y-axis from 0 to 0.1 above max
+        ).title('Accuracy')
+    )
+)
+
+st.altair_chart(line_chart, use_container_width=True)
 st.subheader("Домашнее задание (бонус)", divider=True)
 
 st.write("""
 Реализуйте с помощью [st.line_chart](https://docs.streamlit.io/develop/api-reference/charts/st.line_chart)
 и [st.setssion_state](https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state)
 сохранение и отображение всей истории изменений cross_val_score. Сохраните ваше решение на GitHub. Бонусом
-попробуйте его бесплатно задеплоить на Streamlit Community Cloud: 
+попробуйте его бесплатно задеплоить на Streamlit Community Cloud:
 [документация](https://docs.streamlit.io/deploy/streamlit-community-cloud/get-started).
 """)
